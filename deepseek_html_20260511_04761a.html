@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编码提取工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #eef2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .app-container {
+            width: 100%;
+            max-width: 1400px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px auto;
+        }
+        
+        .options-bar {
+            background: white;
+            border-radius: 8px;
+            padding: 12px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .options-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        button {
+            padding: 6px 14px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button.secondary {
+            background: #2196F3;
+        }
+        
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        
+        .main-panel {
+            display: flex;
+            gap: 20px;
+            min-height: 500px;
+        }
+        
+        .input-panel, .output-panel {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .panel-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .panel-header .count {
+            font-size: 14px;
+            color: #666;
+            background: #f0f0f0;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        textarea {
+            width: 100%;
+            flex: 1;
+            min-height: 300px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .output-area {
+            flex: 1;
+            min-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            background: #f9f9f9;
+            border-radius: 6px;
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 8px;
+        }
+        
+        .code-item {
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+        
+        .code-item:nth-child(even) {
+            background: #f5f5f5;
+        }
+        
+        .code-item:hover {
+            background: #e3f2fd;
+        }
+        
+        .code-text {
+            flex-grow: 1;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .code-count {
+            background: #ff9800;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11px;
+            min-width: 24px;
+            text-align: center;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .status-message {
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            margin: 8px 0 0 0;
+            text-align: center;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .stats-panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            /* 移除 max-height 使详情区域自然延伸，无独立滚动条 */
+        }
+        
+        .stats-header {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border-radius: 8px 8px 0 0;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .detail-stats {
+            padding: 12px 20px;
+            font-size: 13px;
+            font-family: monospace;
+            line-height: 1.5;
+            /* 移除 overflow-y: auto，跟随页面滚动 */
+        }
+        
+        .detail-stats div {
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 20px;
+            background: #f9f9f9;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .pattern-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .pattern-item {
+            background: #f0f0f0;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        @media (max-width: 900px) {
+            .main-panel {
+                flex-direction: column;
+            }
+            .options-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            body {
+                padding: 10px;
+            }
+            .app-container {
+                margin: 10px auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <!-- 选项栏 - 已删除上方的下载CSV和显示摘要按钮 -->
+    <div class="options-bar">
+        <div class="options-group">
+            <label class="checkbox-label"><input type="checkbox" id="removeCounts" checked> 移除重复标记(*N)</label>
+            <label class="checkbox-label"><input type="checkbox" id="removeChinese" checked> 提取编码，移除中文字符</label>
+            <label class="checkbox-label"><input type="checkbox" id="removeDuplicates" checked> 去重，只保留唯一编码</label>
+            <label class="checkbox-label"><input type="checkbox" id="trimSpaces" checked> 移除前后空格</label>
+            <label class="checkbox-label"><input type="checkbox" id="handleTableFormat" checked> 处理表格格式</label>
+        </div>
+        <!-- 此处不再放置任何按钮 -->
+    </div>
+
+    <div class="main-panel">
+        <div class="input-panel">
+            <div class="panel-header">
+                <h2>原始数据输入</h2>
+                <div class="pattern-list">
+                    <span class="pattern-item">中文+编码</span>
+                    <span class="pattern-item">编码+中文</span>
+                    <span class="pattern-item">括号描述</span>
+                    <span class="pattern-item">表格格式</span>
+                </div>
+            </div>
+            <textarea id="inputText" placeholder="粘贴你的数据到这里..."></textarea>
+            <div class="action-buttons">
+                <button onclick="processCodes()">提取编码</button>
+                <button onclick="clearInput()">清空输入</button>
+                <button onclick="loadExample()">加载示例</button>
+            </div>
+        </div>
+
+        <div class="output-panel">
+            <div class="panel-header">
+                <h2>提取结果</h2>
+                <div class="count" id="count">0个编码</div>
+            </div>
+            <div id="outputArea" class="output-area">
+                <div style="text-align: center; padding: 20px; color: #666;">等待处理...</div>
+            </div>
+            <!-- 消息区域：显示处理完成或复制结果信息，会保留并替换内容 -->
+            <div id="statusMessage" class="status-message"></div>
+            <div class="action-buttons">
+                <button onclick="copyToClipboard()">复制结果</button>
+                <button onclick="downloadText()">下载TXT</button>
+                <button onclick="downloadCSV()" class="secondary">下载CSV</button>
+                <button onclick="showSummary()" class="secondary">显示摘要</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-panel">
+        <div class="stats-header">
+            📊 提取详情（编码频率统计，按次数高到低）
+        </div>
+        <div id="detailStats" class="detail-stats">
+            暂无数据
+        </div>
+        <div class="status-bar">
+            <span>状态：<span id="status">就绪</span></span>
+            <span>处理时间：<span id="processingTime">0ms</span></span>
+            <span>唯一编码数：<span id="uniqueCount">0</span></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    let processedCodes = [];
+    let codeStats = {};
+    let detectedSeparators = new Set();
+
+    function detectSeparators() {
+        const input = document.getElementById('inputText').value;
+        const separators = {
+            ' ': '空格', ',': '英文逗号', '，': '中文逗号', '/': '斜杠', '\\': '反斜杠',
+            ';': '分号', '；': '中文分号', '\t': '制表符', '\n': '换行'
+        };
+        detectedSeparators.clear();
+        for (let sep in separators) if (input.includes(sep)) detectedSeparators.add(sep);
+    }
+
+    function isValidCodeFormat(code) {
+        if (!code || code.length < 4) return false;
+        if (!/[A-Za-z]/.test(code) || !/[0-9]/.test(code)) return false;
+        if (code.startsWith('-') || code.endsWith('-')) return false;
+        if (/--/.test(code)) return false;
+        return true;
+    }
+
+    function extractCodeFromText(text) {
+        if (!text || !text.trim()) return null;
+        const codePatterns = [
+            /[A-Za-z][A-Za-z0-9]*[A-Za-z0-9\-]*[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*/,
+            /[0-9][0-9A-Za-z]*[0-9A-Za-z\-]*[0-9A-Za-z]+(?:-[A-Za-z0-9]+)*/,
+            /[A-Za-z][0-9]+[A-Za-z0-9]*\-[0-9]+(?:\-[A-Za-z0-9]+)*/,
+            /[A-Za-z][0-9]+[A-Za-z0-9]*/
+        ];
+        for (let pattern of codePatterns) {
+            const matches = text.match(pattern);
+            if (matches && matches[0]) {
+                let candidate = matches[0];
+                candidate = candidate.replace(/^[^A-Za-z0-9]+/, '');
+                candidate = candidate.replace(/[^A-Za-z0-9\-]+$/, '');
+                if (candidate.length >= 4 && isValidCodeFormat(candidate)) return candidate;
+            }
+        }
+        return null;
+    }
+
+    function cleanCode(code, removeCounts) {
+        if (!code) return null;
+        code = code.replace(/\s+/g, '');
+        if (removeCounts) {
+            const match = code.match(/^(.*?)\*(\d+)$/);
+            if (match) code = match[1];
+        }
+        code = code.replace(/^[^A-Za-z0-9]+/, '');
+        code = code.replace(/[^A-Za-z0-9\-]+$/, '');
+        return code;
+    }
+
+    function extractAllCodesFromText(text, options) {
+        const results = [];
+        const codeRegex = /(?:^|[^\w\-])([A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9](?:\-[A-Za-z0-9]+)*)(?=[^\w\-]|$)/g;
+        let match;
+        while ((match = codeRegex.exec(text)) !== null) {
+            const candidate = match[1];
+            if (candidate && candidate.length >= 4 && isValidCodeFormat(candidate)) {
+                let cleaned = cleanCode(candidate, options.removeCounts);
+                if (cleaned) results.push(cleaned);
+            }
+        }
+        if (results.length === 0) {
+            const parts = text.split(/[\s,，;；/\\]+/);
+            parts.forEach(part => {
+                if (part && part.trim()) {
+                    let tmp = part.trim();
+                    if (options.removeChinese) {
+                        tmp = tmp.replace(/[\(（][^\)）]*[\)）]?/g, '');
+                        tmp = tmp.replace(/[\u4e00-\u9fa5]/g, '');
+                    }
+                    let code = extractCodeFromText(tmp);
+                    if (code) results.push(cleanCode(code, options.removeCounts));
+                }
+            });
+        }
+        return results.filter(c => c && c.length >= 4);
+    }
+
+    function processLine(line, options) {
+        let results = [];
+        let text = options.trimSpaces ? line.trim() : line;
+        if (options.handleTableFormat && text.includes('\t')) {
+            const tabParts = text.split(/\t+/);
+            for (let part of tabParts) {
+                let code = null;
+                if (options.removeChinese) {
+                    let cleaned = part.replace(/[\(（][^\)）]*[\)）]?/g, '');
+                    cleaned = cleaned.replace(/[\u4e00-\u9fa5]/g, '');
+                    code = extractCodeFromText(cleaned);
+                } else {
+                    code = extractCodeFromText(part);
+                }
+                if (code) results.push(cleanCode(code, options.removeCounts));
+            }
+            if (results.length > 0) return [...new Set(results)];
+        }
+        const codes = extractAllCodesFromText(text, options);
+        results.push(...codes);
+        return [...new Set(results)];
+    }
+
+    // 显示消息到 statusMessage 区域（保留并覆盖旧消息）
+    function showMessage(msg, isError = false) {
+        const msgDiv = document.getElementById('statusMessage');
+        msgDiv.textContent = msg;
+        msgDiv.style.backgroundColor = isError ? '#ffebee' : '#e8f5e9';
+        msgDiv.style.color = isError ? '#c62828' : '#2e7d32';
+        // 消息不会自动消失，保留在那里直到下一次被覆盖（符合要求）
+    }
+
+    function processCodes() {
+        const startTime = performance.now();
+        const input = document.getElementById('inputText').value;
+        if (!input.trim()) {
+            showMessage('无输入数据', true);
+            return;
+        }
+        const options = {
+            removeCounts: document.getElementById('removeCounts').checked,
+            removeChinese: document.getElementById('removeChinese').checked,
+            removeDuplicates: document.getElementById('removeDuplicates').checked,
+            trimSpaces: document.getElementById('trimSpaces').checked,
+            handleTableFormat: document.getElementById('handleTableFormat').checked
+        };
+        document.getElementById('status').innerText = '处理中...';
+        codeStats = {};
+        const lines = input.split('\n');
+        let allCodes = [];
+        lines.forEach(line => {
+            if (!line.trim()) return;
+            const lineCodes = processLine(line, options);
+            allCodes.push(...lineCodes);
+        });
+        allCodes.forEach(code => { codeStats[code] = (codeStats[code] || 0) + 1; });
+        if (options.removeDuplicates) {
+            processedCodes = Object.keys(codeStats);
+        } else {
+            processedCodes = [];
+            Object.entries(codeStats).forEach(([code, cnt]) => {
+                for (let i = 0; i < cnt; i++) processedCodes.push(code);
+            });
+        }
+        processedCodes.sort();
+        updateOutput();
+        updateStats();
+        const endTime = performance.now();
+        document.getElementById('processingTime').innerText = (endTime - startTime).toFixed(2) + 'ms';
+        document.getElementById('status').innerText = '完成';
+        const total = Object.values(codeStats).reduce((s, v) => s + v, 0);
+        const unique = Object.keys(codeStats).length;
+        document.getElementById('uniqueCount').innerText = unique;
+        document.getElementById('count').innerText = processedCodes.length + '个编码';
+        // 显示处理完成消息
+        showMessage(`处理完成！共找到 ${total} 个原始编码，去重后得到 ${unique} 个唯一编码`);
+    }
+
+    function updateOutput() {
+        const outputArea = document.getElementById('outputArea');
+        outputArea.innerHTML = '';
+        if (processedCodes.length === 0) {
+            outputArea.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">没有提取到编码</div>';
+            return;
+        }
+        const removeDuplicates = document.getElementById('removeDuplicates').checked;
+        processedCodes.forEach((code, idx) => {
+            const div = document.createElement('div');
+            div.className = 'code-item';
+            const codeSpan = document.createElement('span');
+            codeSpan.className = 'code-text';
+            codeSpan.textContent = `${(idx+1).toString().padStart(3, ' ')}. ${code}`;
+            div.appendChild(codeSpan);
+            if (removeDuplicates && codeStats[code]) {
+                const badge = document.createElement('span');
+                badge.className = 'code-count';
+                badge.textContent = codeStats[code];
+                badge.title = `出现 ${codeStats[code]} 次`;
+                div.appendChild(badge);
+            }
+            outputArea.appendChild(div);
+        });
+    }
+
+    function updateStats() {
+        const detailDiv = document.getElementById('detailStats');
+        if (Object.keys(codeStats).length === 0) {
+            detailDiv.innerHTML = '暂无数据';
+            return;
+        }
+        // 按出现次数从高到低排序
+        const sorted = Object.entries(codeStats).sort((a, b) => b[1] - a[1]);
+        let html = '';
+        sorted.forEach(([code, cnt]) => {
+            html += `<div>${code} : ${cnt} 次</div>`;
+        });
+        detailDiv.innerHTML = html;
+    }
+
+    // 复制结果时不弹窗，直接替换消息区域内容
+    function copyToClipboard() {
+        if (processedCodes.length === 0) {
+            showMessage('没有编码可复制', true);
+            return;
+        }
+        const text = processedCodes.join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+            showMessage(`已复制 ${processedCodes.length} 个编码到剪贴板！`);
+        }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showMessage(`已复制 ${processedCodes.length} 个编码到剪贴板！`);
+        });
+    }
+
+    function downloadText() {
+        if (processedCodes.length === 0) { showMessage('无数据可下载', true); return; }
+        const blob = new Blob([processedCodes.join('\n')], {type: 'text/plain'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'extracted_codes.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showMessage(`已下载 ${processedCodes.length} 个编码到 TXT 文件`);
+    }
+
+    function downloadCSV() {
+        if (Object.keys(codeStats).length === 0) { showMessage('无数据可下载', true); return; }
+        let csv = "序号,编码,出现次数\n";
+        const sorted = Object.entries(codeStats).sort((a,b) => b[1] - a[1]);
+        sorted.forEach(([code, cnt], idx) => {
+            csv += `${idx+1},"${code}",${cnt}\n`;
+        });
+        const blob = new Blob(["\uFEFF" + csv], {type: 'text/csv;charset=utf-8;'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'extracted_codes.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showMessage(`已下载 CSV 文件，包含 ${Object.keys(codeStats).length} 个唯一编码`);
+    }
+
+    function showSummary() {
+        const total = Object.values(codeStats).reduce((s,v)=>s+v,0);
+        const unique = Object.keys(codeStats).length;
+        if (total === 0) alert('没有数据');
+        else alert(`提取摘要\n原始条目数: ${total}\n唯一编码数: ${unique}\n去重率: ${((1-unique/total)*100).toFixed(1)}%`);
+    }
+
+    function clearInput() {
+        document.getElementById('inputText').value = '';
+        processedCodes = [];
+        codeStats = {};
+        updateOutput();
+        updateStats();
+        document.getElementById('count').innerText = '0个编码';
+        document.getElementById('uniqueCount').innerText = '0';
+        document.getElementById('status').innerText = '就绪';
+        document.getElementById('processingTime').innerText = '0ms';
+        const msgDiv = document.getElementById('statusMessage');
+        msgDiv.textContent = '';
+        msgDiv.style.backgroundColor = '#e8f5e9';
+    }
+
+    function loadExample() {
+        document.getElementById('inputText').value = `组合仪表总成G101ICA2F280201-0000-AA
+刮水电动机总成G101095-0500
+前蒸流入流出管总成G201119-0901-A1
+前轮毂包焊接总成（右）PQ2016199-0631
+S201050-0800	后纵臂总成（左）	1C318F270902-0902-AA	后门外护板总成（左）	1C318F270904-2601	后门框后外饰板总成（左	1C318F270804-2400	后门内开手柄总成（左）	1
+V302121-0200, C236F271202-0401，MF625A01-1100 / V301S030-0301*3
+高压电器盒辅驱三合一总成G101EV5ICA1F300601-0110
+制动油管总成(HECU-左后制动器Ⅱ)PC201049-1701`;
+        processCodes();
+    }
+
+    window.onload = () => {
+        loadExample();
+        setInterval(() => detectSeparators(), 500);
+    };
+</script>
+</body>
+</html>
