@@ -204,7 +204,6 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
-            /* 移除 max-height 使详情区域自然延伸，无独立滚动条 */
         }
         
         .stats-header {
@@ -220,7 +219,6 @@
             font-size: 13px;
             font-family: monospace;
             line-height: 1.5;
-            /* 移除 overflow-y: auto，跟随页面滚动 */
         }
         
         .detail-stats div {
@@ -272,7 +270,6 @@
 </head>
 <body>
 <div class="app-container">
-    <!-- 选项栏 - 已删除上方的下载CSV和显示摘要按钮 -->
     <div class="options-bar">
         <div class="options-group">
             <label class="checkbox-label"><input type="checkbox" id="removeCounts" checked> 移除重复标记(*N)</label>
@@ -281,7 +278,6 @@
             <label class="checkbox-label"><input type="checkbox" id="trimSpaces" checked> 移除前后空格</label>
             <label class="checkbox-label"><input type="checkbox" id="handleTableFormat" checked> 处理表格格式</label>
         </div>
-        <!-- 此处不再放置任何按钮 -->
     </div>
 
     <div class="main-panel">
@@ -311,7 +307,6 @@
             <div id="outputArea" class="output-area">
                 <div style="text-align: center; padding: 20px; color: #666;">等待处理...</div>
             </div>
-            <!-- 消息区域：显示处理完成或复制结果信息，会保留并替换内容 -->
             <div id="statusMessage" class="status-message"></div>
             <div class="action-buttons">
                 <button onclick="copyToClipboard()">复制结果</button>
@@ -443,13 +438,11 @@
         return [...new Set(results)];
     }
 
-    // 显示消息到 statusMessage 区域（保留并覆盖旧消息）
     function showMessage(msg, isError = false) {
         const msgDiv = document.getElementById('statusMessage');
         msgDiv.textContent = msg;
         msgDiv.style.backgroundColor = isError ? '#ffebee' : '#e8f5e9';
         msgDiv.style.color = isError ? '#c62828' : '#2e7d32';
-        // 消息不会自动消失，保留在那里直到下一次被覆盖（符合要求）
     }
 
     function processCodes() {
@@ -494,7 +487,6 @@
         const unique = Object.keys(codeStats).length;
         document.getElementById('uniqueCount').innerText = unique;
         document.getElementById('count').innerText = processedCodes.length + '个编码';
-        // 显示处理完成消息
         showMessage(`处理完成！共找到 ${total} 个原始编码，去重后得到 ${unique} 个唯一编码`);
     }
 
@@ -530,7 +522,6 @@
             detailDiv.innerHTML = '暂无数据';
             return;
         }
-        // 按出现次数从高到低排序
         const sorted = Object.entries(codeStats).sort((a, b) => b[1] - a[1]);
         let html = '';
         sorted.forEach(([code, cnt]) => {
@@ -539,7 +530,6 @@
         detailDiv.innerHTML = html;
     }
 
-    // 复制结果时不弹窗，直接替换消息区域内容
     function copyToClipboard() {
         if (processedCodes.length === 0) {
             showMessage('没有编码可复制', true);
@@ -593,19 +583,12 @@
         else alert(`提取摘要\n原始条目数: ${total}\n唯一编码数: ${unique}\n去重率: ${((1-unique/total)*100).toFixed(1)}%`);
     }
 
+    // 清空输入：仅清空输入框内容，显示提示，保留提取结果和统计数据不变
     function clearInput() {
         document.getElementById('inputText').value = '';
-        processedCodes = [];
-        codeStats = {};
-        updateOutput();
-        updateStats();
-        document.getElementById('count').innerText = '0个编码';
-        document.getElementById('uniqueCount').innerText = '0';
-        document.getElementById('status').innerText = '就绪';
-        document.getElementById('processingTime').innerText = '0ms';
-        const msgDiv = document.getElementById('statusMessage');
-        msgDiv.textContent = '';
-        msgDiv.style.backgroundColor = '#e8f5e9';
+        showMessage('输入已清空');
+        // 注意：不重置 processedCodes、codeStats，不更新输出区域和统计区域
+        // 因此提取结果和提取详情保持不变
     }
 
     function loadExample() {
