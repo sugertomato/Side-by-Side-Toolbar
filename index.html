@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>编码提取工具</title>
+    <title>编码提取工具 - 备件主数据验证</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
         }
         
-        /* 关键：整个页面不留多余滚动条，固定视口高度 */
         html, body {
             margin: 0;
             padding: 0;
             height: 100%;
-            overflow: hidden;  /* 禁止页面整体滚动，由内部滚动处理 */
+            overflow: hidden;
         }
         
         body {
@@ -36,10 +36,9 @@
             gap: 15px;
             margin: 0 auto;
             padding: 20px;
-            overflow: hidden;  /* 容器内部滚动由子级控制 */
+            overflow: hidden;
         }
         
-        /* 选项栏固定在顶部（sticky） */
         .options-bar {
             background: white;
             border-radius: 8px;
@@ -49,7 +48,7 @@
             flex-wrap: wrap;
             align-items: center;
             gap: 20px;
-            flex-shrink: 0;      /* 不允许缩小 */
+            flex-shrink: 0;
         }
         
         .options-group {
@@ -92,12 +91,64 @@
             background: #0b7dda;
         }
         
-        /* 主面板：固定高度，内部滚动 */
+        .upload-area {
+            background: white;
+            border-radius: 8px;
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .file-label {
+            background: #ff9800;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+        
+        .file-label:hover {
+            background: #fb8c00;
+        }
+        
+        #fileInfo {
+            font-size: 13px;
+            color: #2e7d32;
+        }
+        
+        .code-column-select {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        select {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        .warning {
+            color: #e65100;
+            background: #fff3e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
         .main-panel {
             display: flex;
             gap: 20px;
-            flex: 0 0 600px;   /* 固定高度600px，不伸缩 */
-            min-height: 0;      /* 防止溢出 */
+            flex: 0 0 600px;
+            min-height: 0;
         }
         
         .input-panel, .output-panel {
@@ -108,7 +159,7 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
-            overflow: hidden;    /* 防止溢出，内部滚动 */
+            overflow: hidden;
         }
         
         .panel-header {
@@ -148,11 +199,6 @@
             line-height: 1.4;
             margin-bottom: 12px;
             overflow: auto;
-        }
-        
-        textarea:focus {
-            outline: none;
-            border-color: #4CAF50;
         }
         
         .output-area {
@@ -218,16 +264,15 @@
             flex-shrink: 0;
         }
         
-        /* 底部统计面板：固定最大高度，内部滚动 */
         .stats-panel {
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
-            flex: 1;              /* 占据剩余空间 */
-            min-height: 0;        /* 允许压缩 */
-            overflow: hidden;     /* 防止溢出，内部滚动 */
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
         }
         
         .stats-header {
@@ -244,13 +289,37 @@
             font-size: 13px;
             font-family: monospace;
             line-height: 1.5;
-            overflow-y: auto;    /* 内部滚动，保持顶部区域固定 */
+            overflow-y: auto;
             flex: 1;
         }
         
-        .detail-stats div {
-            padding: 4px 0;
-            border-bottom: 1px solid #eee;
+        .error-section {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            margin-bottom: 15px;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        
+        .error-title {
+            font-weight: bold;
+            color: #e65100;
+            margin-bottom: 8px;
+        }
+        
+        .error-item {
+            color: #d32f2f;
+            font-weight: bold;
+            padding: 2px 0;
+        }
+        
+        .normal-section {
+            margin-top: 10px;
+        }
+        
+        .stats-divider {
+            border-top: 2px dashed #ccc;
+            margin: 12px 0;
         }
         
         .status-bar {
@@ -307,6 +376,19 @@
             <label class="checkbox-label"><input type="checkbox" id="handleTableFormat" checked> 处理表格格式</label>
         </div>
     </div>
+    
+    <div class="upload-area">
+        <label class="file-label">
+            📂 上传备件主数据表 (xlsx/xls/csv)
+            <input type="file" id="uploadExcel" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelUpload(event)">
+        </label>
+        <span id="fileInfo">未上传文件</span>
+        <div class="code-column-select" id="columnSelectDiv" style="display: none;">
+            <span>编码列：</span>
+            <select id="codeColumnSelect" onchange="setMasterCodeColumn()"></select>
+        </div>
+        <div id="encodingWarning" class="warning" style="display: none;">⚠️ 检测到表头乱码，请将CSV文件另存为UTF-8编码后重新上传，或手动选择正确的编码列</div>
+    </div>
 
     <div class="main-panel">
         <div class="input-panel">
@@ -347,7 +429,7 @@
 
     <div class="stats-panel">
         <div class="stats-header">
-            📊 提取详情（编码频率统计，按次数高到低）
+            📊 提取详情（编码验证与频率统计）
         </div>
         <div id="detailStats" class="detail-stats">
             暂无数据
@@ -356,6 +438,7 @@
             <span>状态：<span id="status">就绪</span></span>
             <span>处理时间：<span id="processingTime">0ms</span></span>
             <span>唯一编码数：<span id="uniqueCount">0</span></span>
+            <span>主数据编码数：<span id="masterCount">0</span></span>
         </div>
     </div>
 </div>
@@ -363,8 +446,177 @@
 <script>
     let processedCodes = [];
     let codeStats = {};
+    let masterCodeSet = new Set();
+    let masterColumnName = "";
+    let allSheetColumns = [];
     let detectedSeparators = new Set();
-
+    
+    // 检查字符串是否包含乱码特征
+    function containsGarbled(str) {
+        if (!str) return false;
+        // 常见乱码字符: �, 以及大量非中英文字母数字的符号
+        return str.includes('�') || /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(str);
+    }
+    
+    function handleExcelUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+            if (!json || json.length < 2) {
+                alert("表格至少需要两行（表头+数据）");
+                return;
+            }
+            let headers = json[0].map(cell => String(cell || "").trim());
+            // 如果第一行存在大量空值，则尝试使用第二行作为表头？简单起见，直接用第一行
+            allSheetColumns = headers;
+            
+            // 默认使用第一列（A列）作为编码列
+            const defaultColumn = headers[0] || "第一列";
+            masterColumnName = defaultColumn;
+            
+            // 检测乱码
+            let hasGarbled = false;
+            for (let h of headers) {
+                if (containsGarbled(h)) {
+                    hasGarbled = true;
+                    break;
+                }
+            }
+            if (hasGarbled && file.name.toLowerCase().endsWith('.csv')) {
+                document.getElementById("encodingWarning").style.display = "block";
+            } else {
+                document.getElementById("encodingWarning").style.display = "none";
+            }
+            
+            // 填充下拉框
+            const select = document.getElementById("codeColumnSelect");
+            select.innerHTML = '';
+            headers.forEach((h, idx) => {
+                const option = document.createElement("option");
+                option.value = h;
+                option.textContent = `${h} (第${idx+1}列)`;
+                if (h === defaultColumn || idx === 0) option.selected = true;
+                select.appendChild(option);
+            });
+            document.getElementById("columnSelectDiv").style.display = "flex";
+            
+            // 加载编码（默认使用第一列）
+            loadMasterCodesFromJson(json, defaultColumn);
+            document.getElementById("fileInfo").innerHTML = `已加载: ${file.name}，编码列: 第一列 (${defaultColumn})`;
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    
+    function setMasterCodeColumn() {
+        const select = document.getElementById("codeColumnSelect");
+        masterColumnName = select.value;
+        if (!masterColumnName) {
+            masterCodeSet.clear();
+            document.getElementById("fileInfo").innerHTML = `已选择: 未选择编码列`;
+            document.getElementById("masterCount").innerText = "0";
+            if (Object.keys(codeStats).length > 0) updateDetailStatsWithValidation();
+            return;
+        }
+        // 重新读取文件以获取当前列的数据
+        const fileInput = document.getElementById("uploadExcel");
+        if (fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+                loadMasterCodesFromJson(json, masterColumnName);
+                document.getElementById("fileInfo").innerHTML = `已加载: ${file.name}，编码列: ${masterColumnName}`;
+                document.getElementById("encodingWarning").style.display = "none";
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            alert("请先上传文件");
+        }
+    }
+    
+    function loadMasterCodesFromJson(json, columnName) {
+        const headers = json[0].map(cell => String(cell || "").trim());
+        // 寻找列索引（可能多个同名，取第一个）
+        let colIndex = headers.indexOf(columnName);
+        if (colIndex === -1 && headers.length > 0) {
+            // 若找不到指定列名，尝试使用第一列
+            colIndex = 0;
+        }
+        if (colIndex === -1) {
+            alert(`未找到有效列，请检查表格`);
+            masterCodeSet.clear();
+            document.getElementById("masterCount").innerText = "0";
+            return;
+        }
+        masterCodeSet.clear();
+        for (let i = 1; i < json.length; i++) {
+            const row = json[i];
+            if (row.length > colIndex) {
+                let code = row[colIndex];
+                if (code && typeof code === 'string') code = code.trim();
+                // 也支持数字类型的编码
+                if (code !== undefined && code !== null && code !== "") {
+                    masterCodeSet.add(String(code));
+                }
+            }
+        }
+        document.getElementById("masterCount").innerText = masterCodeSet.size;
+        if (Object.keys(codeStats).length > 0) {
+            updateDetailStatsWithValidation();
+        }
+    }
+    
+    function updateDetailStatsWithValidation() {
+        const detailDiv = document.getElementById('detailStats');
+        if (Object.keys(codeStats).length === 0) {
+            detailDiv.innerHTML = '暂无数据';
+            return;
+        }
+        let errorCodes = [];
+        let validCodes = [];
+        for (let code in codeStats) {
+            if (masterCodeSet.size > 0 && !masterCodeSet.has(code)) {
+                errorCodes.push(code);
+            } else {
+                validCodes.push(code);
+            }
+        }
+        errorCodes.sort((a,b) => codeStats[b] - codeStats[a]);
+        validCodes.sort((a,b) => codeStats[b] - codeStats[a]);
+        
+        let html = '';
+        if (errorCodes.length > 0 && masterCodeSet.size > 0) {
+            html += `<div class="error-section">
+                        <div class="error-title">⚠️ 编码错误（未在备件主数据表中匹配） - 共 ${errorCodes.length} 个</div>`;
+            for (let code of errorCodes) {
+                html += `<div class="error-item">❌ ${code} : ${codeStats[code]} 次</div>`;
+            }
+            html += `</div>`;
+        } else if (masterCodeSet.size > 0 && errorCodes.length === 0) {
+            html += `<div class="error-section" style="background:#e8f5e9; border-left-color:#4caf50;">
+                        <div class="error-title" style="color:#2e7d32;">✅ 所有提取编码均在主数据表中匹配成功</div>
+                     </div>`;
+        }
+        if (validCodes.length > 0) {
+            if (errorCodes.length > 0) html += `<div class="stats-divider"></div>`;
+            html += `<div class="normal-section"><strong>✅ 匹配成功的编码（按频率排序）</strong><br>`;
+            for (let code of validCodes) {
+                html += `<div>${code} : ${codeStats[code]} 次</div>`;
+            }
+            html += `</div>`;
+        }
+        detailDiv.innerHTML = html;
+    }
+    
+    // ========== 以下为原始编码提取逻辑（未修改） ==========
     function detectSeparators() {
         const input = document.getElementById('inputText').value;
         const separators = {
@@ -507,7 +759,7 @@
         }
         processedCodes.sort();
         updateOutput();
-        updateStats();
+        updateDetailStatsWithValidation();
         const endTime = performance.now();
         document.getElementById('processingTime').innerText = (endTime - startTime).toFixed(2) + 'ms';
         document.getElementById('status').innerText = '完成';
@@ -544,20 +796,6 @@
         });
     }
 
-    function updateStats() {
-        const detailDiv = document.getElementById('detailStats');
-        if (Object.keys(codeStats).length === 0) {
-            detailDiv.innerHTML = '暂无数据';
-            return;
-        }
-        const sorted = Object.entries(codeStats).sort((a, b) => b[1] - a[1]);
-        let html = '';
-        sorted.forEach(([code, cnt]) => {
-            html += `<div>${code} : ${cnt} 次</div>`;
-        });
-        detailDiv.innerHTML = html;
-    }
-
     function copyToClipboard() {
         if (processedCodes.length === 0) {
             showMessage('没有编码可复制', true);
@@ -590,25 +828,30 @@
 
     function downloadCSV() {
         if (Object.keys(codeStats).length === 0) { showMessage('无数据可下载', true); return; }
-        let csv = "序号,编码,出现次数\n";
+        let csv = "序号,编码,出现次数,是否在主数据中\n";
         const sorted = Object.entries(codeStats).sort((a,b) => b[1] - a[1]);
         sorted.forEach(([code, cnt], idx) => {
-            csv += `${idx+1},"${code}",${cnt}\n`;
+            const inMaster = masterCodeSet.has(code) ? "是" : "否";
+            csv += `${idx+1},"${code}",${cnt},${inMaster}\n`;
         });
         const blob = new Blob(["\uFEFF" + csv], {type: 'text/csv;charset=utf-8;'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'extracted_codes.csv';
+        a.download = 'extracted_codes_validation.csv';
         a.click();
         URL.revokeObjectURL(a.href);
-        showMessage(`已下载 CSV 文件，包含 ${Object.keys(codeStats).length} 个唯一编码`);
+        showMessage(`已下载 CSV 文件，包含验证结果`);
     }
 
     function showSummary() {
         const total = Object.values(codeStats).reduce((s,v)=>s+v,0);
         const unique = Object.keys(codeStats).length;
+        let errorCount = 0;
+        if (masterCodeSet.size > 0) {
+            for (let code in codeStats) if (!masterCodeSet.has(code)) errorCount++;
+        }
         if (total === 0) alert('没有数据');
-        else alert(`提取摘要\n原始条目数: ${total}\n唯一编码数: ${unique}\n去重率: ${((1-unique/total)*100).toFixed(1)}%`);
+        else alert(`提取摘要\n原始条目数: ${total}\n唯一编码数: ${unique}\n未匹配编码数: ${errorCount}\n去重率: ${((1-unique/total)*100).toFixed(1)}%`);
     }
 
     function clearInput() {
