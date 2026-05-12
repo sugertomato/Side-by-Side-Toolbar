@@ -9,27 +9,37 @@
             box-sizing: border-box;
         }
         
+        /* 关键：整个页面不留多余滚动条，固定视口高度 */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;  /* 禁止页面整体滚动，由内部滚动处理 */
+        }
+        
         body {
             font-family: 'Microsoft YaHei', sans-serif;
-            margin: 0;
-            padding: 20px;
             background-color: #eef2f5;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100%;
         }
         
         .app-container {
             width: 100%;
             max-width: 1400px;
+            height: 100%;
             background: transparent;
             display: flex;
             flex-direction: column;
             gap: 15px;
-            margin: 20px auto;
+            margin: 0 auto;
+            padding: 20px;
+            overflow: hidden;  /* 容器内部滚动由子级控制 */
         }
         
+        /* 选项栏固定在顶部（sticky） */
         .options-bar {
             background: white;
             border-radius: 8px;
@@ -39,6 +49,7 @@
             flex-wrap: wrap;
             align-items: center;
             gap: 20px;
+            flex-shrink: 0;      /* 不允许缩小 */
         }
         
         .options-group {
@@ -52,23 +63,25 @@
             align-items: center;
             gap: 5px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 14px;
             white-space: nowrap;
         }
         
         button {
-            padding: 6px 14px;
+            padding: 10px 24px;
             background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 13px;
-            transition: background 0.3s;
+            font-size: 15px;
+            font-weight: 500;
+            transition: background 0.3s, transform 0.1s;
         }
         
         button:hover {
             background: #45a049;
+            transform: scale(1.02);
         }
         
         button.secondary {
@@ -79,10 +92,12 @@
             background: #0b7dda;
         }
         
+        /* 主面板：固定高度，内部滚动 */
         .main-panel {
             display: flex;
             gap: 20px;
-            min-height: 500px;
+            flex: 0 0 600px;   /* 固定高度600px，不伸缩 */
+            min-height: 0;      /* 防止溢出 */
         }
         
         .input-panel, .output-panel {
@@ -93,6 +108,7 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
+            overflow: hidden;    /* 防止溢出，内部滚动 */
         }
         
         .panel-header {
@@ -102,6 +118,7 @@
             margin-bottom: 12px;
             flex-wrap: wrap;
             gap: 10px;
+            flex-shrink: 0;
         }
         
         .panel-header h2 {
@@ -121,7 +138,7 @@
         textarea {
             width: 100%;
             flex: 1;
-            min-height: 300px;
+            min-height: 0;
             padding: 12px;
             border: 2px solid #ddd;
             border-radius: 6px;
@@ -130,6 +147,7 @@
             resize: vertical;
             line-height: 1.4;
             margin-bottom: 12px;
+            overflow: auto;
         }
         
         textarea:focus {
@@ -139,7 +157,7 @@
         
         .output-area {
             flex: 1;
-            min-height: 300px;
+            min-height: 0;
             overflow-y: auto;
             font-family: monospace;
             background: #f9f9f9;
@@ -183,27 +201,33 @@
         
         .action-buttons {
             display: flex;
-            gap: 10px;
-            margin-top: 8px;
+            gap: 12px;
+            margin-top: 12px;
             flex-wrap: wrap;
+            flex-shrink: 0;
         }
         
         .status-message {
-            font-size: 12px;
-            padding: 6px 12px;
+            font-size: 13px;
+            padding: 8px 12px;
             border-radius: 6px;
             margin: 8px 0 0 0;
             text-align: center;
             background-color: #e8f5e9;
             color: #2e7d32;
+            flex-shrink: 0;
         }
         
+        /* 底部统计面板：固定最大高度，内部滚动 */
         .stats-panel {
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
+            flex: 1;              /* 占据剩余空间 */
+            min-height: 0;        /* 允许压缩 */
+            overflow: hidden;     /* 防止溢出，内部滚动 */
         }
         
         .stats-header {
@@ -212,6 +236,7 @@
             border-radius: 8px 8px 0 0;
             font-weight: bold;
             border-bottom: 1px solid #ddd;
+            flex-shrink: 0;
         }
         
         .detail-stats {
@@ -219,6 +244,8 @@
             font-size: 13px;
             font-family: monospace;
             line-height: 1.5;
+            overflow-y: auto;    /* 内部滚动，保持顶部区域固定 */
+            flex: 1;
         }
         
         .detail-stats div {
@@ -235,6 +262,7 @@
             border-top: 1px solid #eee;
             font-size: 12px;
             color: #666;
+            flex-shrink: 0;
         }
         
         .pattern-list {
@@ -253,17 +281,17 @@
         
         @media (max-width: 900px) {
             .main-panel {
-                flex-direction: column;
+                flex: 0 0 450px;
             }
             .options-bar {
                 flex-direction: column;
                 align-items: stretch;
             }
             body {
-                padding: 10px;
+                padding: 0;
             }
             .app-container {
-                margin: 10px auto;
+                padding: 10px;
             }
         }
     </style>
@@ -583,12 +611,9 @@
         else alert(`提取摘要\n原始条目数: ${total}\n唯一编码数: ${unique}\n去重率: ${((1-unique/total)*100).toFixed(1)}%`);
     }
 
-    // 清空输入：仅清空输入框内容，显示提示，保留提取结果和统计数据不变
     function clearInput() {
         document.getElementById('inputText').value = '';
         showMessage('输入已清空');
-        // 注意：不重置 processedCodes、codeStats，不更新输出区域和统计区域
-        // 因此提取结果和提取详情保持不变
     }
 
     function loadExample() {
