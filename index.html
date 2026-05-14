@@ -75,16 +75,24 @@
             cursor: pointer;
             font-size: 15px;
             font-weight: 500;
-            transition: background 0.3s, transform 0.1s;
+            transition: background 0.2s, transform 0.1s;
+        }
+        
+        button:active {
+            transform: scale(0.97);
+            background: #3e8e41;
         }
         
         button:hover {
             background: #45a049;
-            transform: scale(1.02);
         }
         
         button.secondary {
             background: #2196F3;
+        }
+        
+        button.secondary:active {
+            background: #0b5e9e;
         }
         
         button.secondary:hover {
@@ -111,6 +119,10 @@
             cursor: pointer;
             font-size: 13px;
             transition: 0.2s;
+        }
+        
+        .file-label:active {
+            transform: scale(0.96);
         }
         
         .file-label:hover {
@@ -199,6 +211,11 @@
             line-height: 1.4;
             margin-bottom: 12px;
             overflow: auto;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
         }
         
         .output-area {
@@ -403,9 +420,9 @@
             </div>
             <textarea id="inputText" placeholder="粘贴你的数据到这里..."></textarea>
             <div class="action-buttons">
-                <button onclick="processCodes()">提取编码</button>
-                <button onclick="clearInput()">清空输入</button>
-                <button onclick="loadExample()">加载示例</button>
+                <button id="extractBtn" onclick="processCodes()">提取编码</button>
+                <button id="clearBtn" onclick="clearInput()">清空输入</button>
+                <button id="loadExampleBtn" onclick="loadExample()">加载示例</button>
             </div>
         </div>
 
@@ -451,10 +468,11 @@
     let allSheetColumns = [];
     let detectedSeparators = new Set();
     
-    // 检查字符串是否包含乱码特征
+    // 防抖标志
+    let clearInputPending = false;
+    
     function containsGarbled(str) {
         if (!str) return false;
-        // 常见乱码字符: �, 以及大量非中英文字母数字的符号
         return str.includes('�') || /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(str);
     }
     
@@ -472,14 +490,10 @@
                 return;
             }
             let headers = json[0].map(cell => String(cell || "").trim());
-            // 如果第一行存在大量空值，则尝试使用第二行作为表头？简单起见，直接用第一行
             allSheetColumns = headers;
-            
-            // 默认使用第一列（A列）作为编码列
             const defaultColumn = headers[0] || "第一列";
             masterColumnName = defaultColumn;
             
-            // 检测乱码
             let hasGarbled = false;
             for (let h of headers) {
                 if (containsGarbled(h)) {
@@ -493,7 +507,6 @@
                 document.getElementById("encodingWarning").style.display = "none";
             }
             
-            // 填充下拉框
             const select = document.getElementById("codeColumnSelect");
             select.innerHTML = '';
             headers.forEach((h, idx) => {
@@ -504,8 +517,6 @@
                 select.appendChild(option);
             });
             document.getElementById("columnSelectDiv").style.display = "flex";
-            
-            // 加载编码（默认使用第一列）
             loadMasterCodesFromJson(json, defaultColumn);
             document.getElementById("fileInfo").innerHTML = `已加载: ${file.name}，编码列: 第一列 (${defaultColumn})`;
         };
@@ -522,7 +533,6 @@
             if (Object.keys(codeStats).length > 0) updateDetailStatsWithValidation();
             return;
         }
-        // 重新读取文件以获取当前列的数据
         const fileInput = document.getElementById("uploadExcel");
         if (fileInput.files && fileInput.files[0]) {
             const file = fileInput.files[0];
@@ -544,10 +554,8 @@
     
     function loadMasterCodesFromJson(json, columnName) {
         const headers = json[0].map(cell => String(cell || "").trim());
-        // 寻找列索引（可能多个同名，取第一个）
         let colIndex = headers.indexOf(columnName);
         if (colIndex === -1 && headers.length > 0) {
-            // 若找不到指定列名，尝试使用第一列
             colIndex = 0;
         }
         if (colIndex === -1) {
@@ -562,7 +570,6 @@
             if (row.length > colIndex) {
                 let code = row[colIndex];
                 if (code && typeof code === 'string') code = code.trim();
-                // 也支持数字类型的编码
                 if (code !== undefined && code !== null && code !== "") {
                     masterCodeSet.add(String(code));
                 }
@@ -616,7 +623,7 @@
         detailDiv.innerHTML = html;
     }
     
-    // ========== 以下为原始编码提取逻辑（未修改） ==========
+    // --- 编码提取核心函数 ---
     function detectSeparators() {
         const input = document.getElementById('inputText').value;
         const separators = {
@@ -854,9 +861,17 @@
         else alert(`提取摘要\n原始条目数: ${total}\n唯一编码数: ${unique}\n未匹配编码数: ${errorCount}\n去重率: ${((1-unique/total)*100).toFixed(1)}%`);
     }
 
+    // 优化后的清空输入函数：仅清空输入框，带防抖和焦点反馈
+    let clearTimeoutId = null;
     function clearInput() {
-        document.getElementById('inputText').value = '';
-        showMessage('输入已清空');
+        if (clearTimeoutId) return; // 防抖：短时间内重复点击只执行一次
+        clearTimeoutId = setTimeout(() => {
+            const textarea = document.getElementById('inputText');
+            textarea.value = '';
+            showMessage('输入已清空');
+            textarea.focus();      // 自动聚焦，方便下次输入
+            clearTimeoutId = null;
+        }, 50);
     }
 
     function loadExample() {
