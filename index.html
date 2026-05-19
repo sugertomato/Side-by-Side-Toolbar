@@ -247,9 +247,22 @@
             background: #e3f2fd;
         }
         
+        .code-index {
+            user-select: none;
+            display: inline-block;
+            width: 40px;
+            color: #888;
+            font-family: monospace;
+        }
+        
         .code-text {
             flex-grow: 1;
             font-family: 'Courier New', monospace;
+        }
+        
+        .selectable-code {
+            user-select: all;
+            display: inline-block;
         }
         
         .code-count {
@@ -260,6 +273,7 @@
             font-size: 11px;
             min-width: 24px;
             text-align: center;
+            user-select: none;
         }
         
         .action-buttons {
@@ -390,7 +404,7 @@
             <label class="checkbox-label"><input type="checkbox" id="removeChinese" checked> 提取编码，移除中文字符</label>
             <label class="checkbox-label"><input type="checkbox" id="removeDuplicates" checked> 去重，只保留唯一编码</label>
             <label class="checkbox-label"><input type="checkbox" id="trimSpaces" checked> 移除前后空格</label>
-            <label class="checkbox-label"><input type="checkbox" id="handleTableFormat" checked> 处理表格格式</label>
+            <label class="checkbox-label"><input type="checkbox" id="handleTableFormat" checked> 处理表格格式（纯编码建议关闭）</label>
         </div>
     </div>
     
@@ -455,7 +469,7 @@
             <span>状态：<span id="status">就绪</span></span>
             <span>处理时间：<span id="processingTime">0ms</span></span>
             <span>唯一编码数：<span id="uniqueCount">0</span></span>
-            <span>主数据编码数：<span id="masterCount">0</span></span>
+            <span>主数据编码数：<span id="masterCount">未上传</span></span>
         </div>
     </div>
 </div>
@@ -467,9 +481,9 @@
     let masterColumnName = "";
     let allSheetColumns = [];
     let detectedSeparators = new Set();
+    let isMasterDataUploaded = false;  // 新增标志：是否已上传主数据表
     
-    // 防抖标志
-    let clearInputPending = false;
+    let clearTimeoutId = null;
     
     function containsGarbled(str) {
         if (!str) return false;
@@ -519,6 +533,7 @@
             document.getElementById("columnSelectDiv").style.display = "flex";
             loadMasterCodesFromJson(json, defaultColumn);
             document.getElementById("fileInfo").innerHTML = `已加载: ${file.name}，编码列: 第一列 (${defaultColumn})`;
+            isMasterDataUploaded = true;  // 已上传
         };
         reader.readAsArrayBuffer(file);
     }
@@ -545,6 +560,7 @@
                 loadMasterCodesFromJson(json, masterColumnName);
                 document.getElementById("fileInfo").innerHTML = `已加载: ${file.name}，编码列: ${masterColumnName}`;
                 document.getElementById("encodingWarning").style.display = "none";
+                isMasterDataUploaded = true;
             };
             reader.readAsArrayBuffer(file);
         } else {
@@ -587,6 +603,13 @@
             detailDiv.innerHTML = '暂无数据';
             return;
         }
+        
+        // 未上传主数据表时，显示提示信息，不进行匹配
+        if (!isMasterDataUploaded) {
+            detailDiv.innerHTML = '<div style="padding: 12px; background: #f5f5f5; border-radius: 6px; text-align: center; color: #666;">📁 未上传备件主数据表，请先上传文件以进行编码验证</div>';
+            return;
+        }
+        
         let errorCodes = [];
         let validCodes = [];
         for (let code in codeStats) {
@@ -604,44 +627,51 @@
             html += `<div class="error-section">
                         <div class="error-title">⚠️ 编码错误（未在备件主数据表中匹配） - 共 ${errorCodes.length} 个</div>`;
             for (let code of errorCodes) {
-                html += `<div class="error-item">❌ ${code} : ${codeStats[code]} 次</div>`;
+                html += `<div class="error-item">❌ <span class="selectable-code">${code}</span> : ${codeStats[code]} 次</div>`;
             }
             html += `</div>`;
         } else if (masterCodeSet.size > 0 && errorCodes.length === 0) {
             html += `<div class="error-section" style="background:#e8f5e9; border-left-color:#4caf50;">
                         <div class="error-title" style="color:#2e7d32;">✅ 所有提取编码均在主数据表中匹配成功</div>
                      </div>`;
+        } else if (masterCodeSet.size === 0) {
+            // 已上传文件但主数据编码数为0
+            html += `<div class="error-section" style="background:#fff3e0; border-left-color:#ff9800;">
+                        <div class="error-title">⚠️ 备件主数据表中没有找到任何编码（可能列选择错误或数据为空）</div>
+                     </div>`;
         }
         if (validCodes.length > 0) {
             if (errorCodes.length > 0) html += `<div class="stats-divider"></div>`;
             html += `<div class="normal-section"><strong>✅ 匹配成功的编码（按频率排序）</strong><br>`;
             for (let code of validCodes) {
-                html += `<div>${code} : ${codeStats[code]} 次</div>`;
+                html += `<div><span class="selectable-code">${code}</span> : ${codeStats[code]} 次</div>`;
             }
             html += `</div>`;
         }
         detailDiv.innerHTML = html;
     }
     
-    // --- 编码提取核心函数 ---
-    function detectSeparators() {
-        const input = document.getElementById('inputText').value;
-        const separators = {
-            ' ': '空格', ',': '英文逗号', '，': '中文逗号', '/': '斜杠', '\\': '反斜杠',
-            ';': '分号', '；': '中文分号', '\t': '制表符', '\n': '换行'
-        };
-        detectedSeparators.clear();
-        for (let sep in separators) if (input.includes(sep)) detectedSeparators.add(sep);
-    }
-
+    // 支持纯数字编码的验证函数
     function isValidCodeFormat(code) {
         if (!code || code.length < 4) return false;
-        if (!/[A-Za-z]/.test(code) || !/[0-9]/.test(code)) return false;
-        if (code.startsWith('-') || code.endsWith('-')) return false;
+        if (!/^[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]$/.test(code)) return false;
+        if (!/[0-9]/.test(code)) return false;
         if (/--/.test(code)) return false;
         return true;
     }
-
+    
+    function cleanCode(code, removeCounts) {
+        if (!code) return null;
+        code = code.replace(/\s+/g, '');
+        if (removeCounts) {
+            const match = code.match(/^(.*?)\*(\d+)$/);
+            if (match) code = match[1];
+        }
+        code = code.replace(/^[^A-Za-z0-9]+/, '');
+        code = code.replace(/[^A-Za-z0-9\-]+$/, '');
+        return code;
+    }
+    
     function extractCodeFromText(text) {
         if (!text || !text.trim()) return null;
         const codePatterns = [
@@ -661,19 +691,7 @@
         }
         return null;
     }
-
-    function cleanCode(code, removeCounts) {
-        if (!code) return null;
-        code = code.replace(/\s+/g, '');
-        if (removeCounts) {
-            const match = code.match(/^(.*?)\*(\d+)$/);
-            if (match) code = match[1];
-        }
-        code = code.replace(/^[^A-Za-z0-9]+/, '');
-        code = code.replace(/[^A-Za-z0-9\-]+$/, '');
-        return code;
-    }
-
+    
     function extractAllCodesFromText(text, options) {
         const results = [];
         const codeRegex = /(?:^|[^\w\-])([A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9](?:\-[A-Za-z0-9]+)*)(?=[^\w\-]|$)/g;
@@ -701,7 +719,7 @@
         }
         return results.filter(c => c && c.length >= 4);
     }
-
+    
     function processLine(line, options) {
         let results = [];
         let text = options.trimSpaces ? line.trim() : line;
@@ -724,14 +742,14 @@
         results.push(...codes);
         return [...new Set(results)];
     }
-
+    
     function showMessage(msg, isError = false) {
         const msgDiv = document.getElementById('statusMessage');
         msgDiv.textContent = msg;
         msgDiv.style.backgroundColor = isError ? '#ffebee' : '#e8f5e9';
         msgDiv.style.color = isError ? '#c62828' : '#2e7d32';
     }
-
+    
     function processCodes() {
         const startTime = performance.now();
         const input = document.getElementById('inputText').value;
@@ -776,7 +794,7 @@
         document.getElementById('count').innerText = processedCodes.length + '个编码';
         showMessage(`处理完成！共找到 ${total} 个原始编码，去重后得到 ${unique} 个唯一编码`);
     }
-
+    
     function updateOutput() {
         const outputArea = document.getElementById('outputArea');
         outputArea.innerHTML = '';
@@ -788,10 +806,18 @@
         processedCodes.forEach((code, idx) => {
             const div = document.createElement('div');
             div.className = 'code-item';
+            
+            const indexSpan = document.createElement('span');
+            indexSpan.className = 'code-index';
+            indexSpan.textContent = `${(idx+1).toString().padStart(3, ' ')}.`;
+            
             const codeSpan = document.createElement('span');
-            codeSpan.className = 'code-text';
-            codeSpan.textContent = `${(idx+1).toString().padStart(3, ' ')}. ${code}`;
+            codeSpan.className = 'code-text selectable-code';
+            codeSpan.textContent = code;
+            
+            div.appendChild(indexSpan);
             div.appendChild(codeSpan);
+            
             if (removeDuplicates && codeStats[code]) {
                 const badge = document.createElement('span');
                 badge.className = 'code-count';
@@ -802,7 +828,7 @@
             outputArea.appendChild(div);
         });
     }
-
+    
     function copyToClipboard() {
         if (processedCodes.length === 0) {
             showMessage('没有编码可复制', true);
@@ -821,7 +847,7 @@
             showMessage(`已复制 ${processedCodes.length} 个编码到剪贴板！`);
         });
     }
-
+    
     function downloadText() {
         if (processedCodes.length === 0) { showMessage('无数据可下载', true); return; }
         const blob = new Blob([processedCodes.join('\n')], {type: 'text/plain'});
@@ -832,7 +858,7 @@
         URL.revokeObjectURL(a.href);
         showMessage(`已下载 ${processedCodes.length} 个编码到 TXT 文件`);
     }
-
+    
     function downloadCSV() {
         if (Object.keys(codeStats).length === 0) { showMessage('无数据可下载', true); return; }
         let csv = "序号,编码,出现次数,是否在主数据中\n";
@@ -849,7 +875,7 @@
         URL.revokeObjectURL(a.href);
         showMessage(`已下载 CSV 文件，包含验证结果`);
     }
-
+    
     function showSummary() {
         const total = Object.values(codeStats).reduce((s,v)=>s+v,0);
         const unique = Object.keys(codeStats).length;
@@ -860,20 +886,18 @@
         if (total === 0) alert('没有数据');
         else alert(`提取摘要\n原始条目数: ${total}\n唯一编码数: ${unique}\n未匹配编码数: ${errorCount}\n去重率: ${((1-unique/total)*100).toFixed(1)}%`);
     }
-
-    // 优化后的清空输入函数：仅清空输入框，带防抖和焦点反馈
-    let clearTimeoutId = null;
+    
     function clearInput() {
-        if (clearTimeoutId) return; // 防抖：短时间内重复点击只执行一次
+        if (clearTimeoutId) return;
         clearTimeoutId = setTimeout(() => {
             const textarea = document.getElementById('inputText');
             textarea.value = '';
             showMessage('输入已清空');
-            textarea.focus();      // 自动聚焦，方便下次输入
+            textarea.focus();
             clearTimeoutId = null;
         }, 50);
     }
-
+    
     function loadExample() {
         document.getElementById('inputText').value = `组合仪表总成G101ICA2F280201-0000-AA
 刮水电动机总成G101095-0500
@@ -882,13 +906,16 @@
 S201050-0800	后纵臂总成（左）	1C318F270902-0902-AA	后门外护板总成（左）	1C318F270904-2601	后门框后外饰板总成（左	1C318F270804-2400	后门内开手柄总成（左）	1
 V302121-0200, C236F271202-0401，MF625A01-1100 / V301S030-0301*3
 高压电器盒辅驱三合一总成G101EV5ICA1F300601-0110
-制动油管总成(HECU-左后制动器Ⅱ)PC201049-1701`;
+制动油管总成(HECU-左后制动器Ⅱ)PC201049-1701
+09141-12004   纯数字编码测试`;
         processCodes();
     }
-
+    
     window.onload = () => {
         loadExample();
         setInterval(() => detectSeparators(), 500);
+        // 初始状态：未上传主数据，底部显示“未上传”
+        document.getElementById('masterCount').innerText = '未上传';
     };
 </script>
 </body>
